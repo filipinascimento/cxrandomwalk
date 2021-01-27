@@ -88,7 +88,7 @@ setup(
 			extra_compile_args=[
 				# "-g",
 				"-std=c11",
-				"-m64",
+				# "-m64",
 				"-Wall",
 				"-Wno-unused-function",
 				"-Wno-deprecated-declarations",

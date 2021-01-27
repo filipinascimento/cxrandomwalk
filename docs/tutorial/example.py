@@ -16,7 +16,6 @@ agent = rw.Agent(vertexCount,edges,False,weights)
 #       pbar= tqdm(total=total);
 #     pbar.update(current - pbar.n)
 
-#   return inner
 print(agent.generateWalks(p=2,q=3,verbose=True))
 
 # print(len(agent.generateWalks(q=2,p=3,verbose=False,updateInterval=1000,callback=make_pbar())))
