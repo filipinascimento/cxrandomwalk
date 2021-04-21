@@ -317,11 +317,13 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 
 
 	CVString* labelsData = NULL;
+	CVSize labelsDataSize = 0;
 	if(labels){
 		Py_ssize_t numLines = PyList_Size(labels);
 		if (numLines >= verticesCount){
 			labelsData = calloc(numLines,sizeof(CVString));
 			for (CVIndex index=0; index<numLines; index++){
+				labelsDataSize = numLines;
 				PyObject* strObj = PyList_GetItem(labels, index);
 				if (PyUnicode_Check(strObj)) {
 					PyObject * temp_bytes = PyUnicode_AsEncodedString(strObj, "UTF-8", "strict"); // Owned reference
@@ -539,6 +541,12 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 	}
 	
 	free(sentences);
+	if(labelsData){
+		for (CVIndex index=0; index<labelsDataSize; index++){
+			CVStringDestroy(labelsData[index]);
+		}
+		free(labelsData);
+	}
 
 	if(outputFile){
 		Py_RETURN_NONE;
