@@ -256,6 +256,7 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 		"walksPerNode",
 		"verbose",
 		"filename",
+		"labels",
 		"callback",
 		"updateInterval",
 		NULL
@@ -267,12 +268,13 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 	Py_ssize_t walksPerNode = 80;
 	int verbose = 0;
 	char* outputPath = NULL;
+	PyObject* labels = NULL;
 	PyObject* callback = NULL ;
 	Py_ssize_t updateInterval = 1000;
 
 	if (!PyArg_ParseTupleAndKeywords(args,
 									 kwds,
-									 "|ffnnpsOn",
+									 "|ffnnpsOOn",
 									 kwlist,
 									 &p,
 									 &q,
@@ -280,6 +282,7 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 									 &walksPerNode,
 									 &verbose,
 									 &outputPath,
+									 &labels,
 									 &callback,
 									 &updateInterval)) {
 		return NULL;
@@ -302,12 +305,37 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 		}
 	}
 
+
+
+
 	CVNetwork *network = self->network;
 
 	CVSize verticesCount = network->verticesCount;
 	CVSize sentencesCount = network->verticesCount * walksPerNode;
 	CVIndex *sentences = calloc(sentencesCount * windowSize,
 								sizeof(CVIndex)); // all indices are shifted by 1
+
+
+	CVString* labelsData = NULL;
+	if(labels){
+		Py_ssize_t numLines = PyList_Size(labels);
+		if (numLines >= verticesCount){
+			labelsData = calloc(numLines,sizeof(CVString));
+			for (CVIndex index=0; index<numLines; index++){
+				PyObject* strObj = PyList_GetItem(labels, index);
+				if (PyUnicode_Check(strObj)) {
+					PyObject * temp_bytes = PyUnicode_AsEncodedString(strObj, "UTF-8", "strict"); // Owned reference
+					if (temp_bytes != NULL) {
+							labelsData[index] = CVNewStringFromString(PyBytes_AS_STRING(temp_bytes)); // Borrowed pointer
+							// printf("\n%"CVIndexScan": %s\n",index,labelsData[index]);
+							Py_DECREF(temp_bytes);
+					}
+				}
+			}
+		}
+	}
+
+
 
 	unsigned int *seeds = calloc(sentencesCount, sizeof(unsigned int));
 
@@ -481,11 +509,23 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 			CVIndex nodeIndexWithOffset = sentences[sentenceIndex * windowSize + walkStep];
 			if (nodeIndexWithOffset > 0) {
 				if(outputFile){
-					fprintf(outputFile,"%"CVUIntegerScan" ",(nodeIndexWithOffset-1));
+					if(labelsData){
+						fprintf(outputFile,"%s ",labelsData[(nodeIndexWithOffset-1)]);
+						// printf("\n%d: %s\n",(int)(nodeIndexWithOffset-1),labelsData[nodeIndexWithOffset-1]);
+					}else{
+						fprintf(outputFile,"%"CVUIntegerScan" ",(nodeIndexWithOffset-1));
+					}
 				}else{
-					PyObject* value = PyLong_FromUnsignedLong((unsigned long)(nodeIndexWithOffset-1));
-					PyList_Append(walkList, value);
-					Py_DECREF(value);
+					if(labelsData){
+						PyObject* value = Py_BuildValue("s", labelsData[(nodeIndexWithOffset-1)]);
+						// printf("\n%d: %s\n",(int)(nodeIndexWithOffset-1),labelsData[nodeIndexWithOffset-1]);
+						PyList_Append(walkList, value);
+						Py_DECREF(value);
+					}else{
+						PyObject* value = PyLong_FromUnsignedLong((unsigned long)(nodeIndexWithOffset-1));
+						PyList_Append(walkList, value);
+						Py_DECREF(value);
+					}
 				}
 				// printf("%" CVUIntegerScan " ", (nodeIndexWithOffset - 1));
 			}
