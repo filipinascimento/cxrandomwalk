@@ -344,7 +344,14 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 	unsigned int initialSeed = (unsigned int)time(NULL);
 	for (CVIndex sentenceIndex = 0; sentenceIndex < sentencesCount;
 		 sentenceIndex++) {
-		seeds[sentenceIndex] = rand_r(&initialSeed) ^ (unsigned int)sentenceIndex;
+		#ifdef __WIN32__
+				unsigned int randomNumber;
+				rand_s(&randomNumber);
+				randomNumber ^= (unsigned int)sentenceIndex;
+				seeds[sentenceIndex] = randomNumber;
+		#else
+				seeds[sentenceIndex] = rand_r(&initialSeed) ^ (unsigned int)sentenceIndex;
+		#endif
 	}
 
 	CVInteger *currentProgress = calloc(1, sizeof(CVInteger));
@@ -405,11 +412,15 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 							}
 							probabilities[neighIndex] = weight;
 						}
-
-						CVDouble choice = ((double)rand_r(seedRef) / RAND_MAX);
+						#ifdef __WIN32__
+							unsigned int randomNumber;
+							rand_s(&randomNumber);
+							CVDouble choice = ((double)randomNumber / UINT_MAX);
+						#else
+							CVDouble choice = ((double)rand_r(seedRef) / RAND_MAX);
+						#endif
 						CVDistribution *distribution =
 							CVCreateDistribution(probabilities, NULL, neighborCount);
-
 						previousNode = currentNode;
 						currentNode =
 							neighbors[CVDistributionIndexForChoice(distribution, choice)];
