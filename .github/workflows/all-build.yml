@@ -26,7 +26,7 @@ jobs:
             #   CIBW_SOME_OPTION: value
             CIBW_SKIP: "cp27-* cp35-* cp36-* cp37-* cp38-*"
             # test tests/test_agent.py
-            CIBW_TEST_REQUIRES: pytest
+            CIBW_TEST_REQUIRES: pytest tqdm
             CIBW_TEST_COMMAND: "pytest {project}/tests"
         
       - uses: actions/upload-artifact@v3

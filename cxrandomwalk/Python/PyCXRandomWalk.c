@@ -5,7 +5,7 @@
 #include <CVNetwork.h>
 #include <CVSet.h>
 #include <Python.h>
-#include <pthread.h>
+// #include <pthread.h>
 
 #include "structmember.h"
 
