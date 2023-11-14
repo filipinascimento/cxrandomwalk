@@ -10,7 +10,7 @@
 #include "structmember.h"
 
 // #define NO_IMPORT_ARRAY
-#define PY_ARRAY_UNIQUE_SYMBOL cxrandomwalk_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL cxrandomwalk_core_ARRAY_API
 #include <numpy/arrayobject.h>
 
 #if CV_USE_OPENMP
@@ -597,7 +597,7 @@ static PyMethodDef PyAgent_methods[] = {
 };
 
 static PyTypeObject PyAgentType = {
-	PyVarObject_HEAD_INIT(NULL, 0).tp_name = "cxrandomwalk.Agent",
+	PyVarObject_HEAD_INIT(NULL, 0).tp_name = "cxrandomwalk_core.Agent",
 	.tp_doc = "PyAgent objects",
 	.tp_basicsize = sizeof(PyAgent),
 	.tp_itemsize = 0,
@@ -612,11 +612,11 @@ static PyTypeObject PyAgentType = {
 	.tp_getset = PyAgent_getsetters,
 };
 
-char cxrandomwalkmod_docs[] = "This is CXRandomWalk module.";
+char cxrandomwalk_coremod_docs[] = "This is CXRandomWalk module.";
 
-static PyModuleDef cxrandomwalk_mod = {PyModuleDef_HEAD_INIT,
-										 .m_name = "cxrandomwalk",
-										 .m_doc = cxrandomwalkmod_docs,
+static PyModuleDef cxrandomwalk_core_mod = {PyModuleDef_HEAD_INIT,
+										 .m_name = "cxrandomwalk_core",
+										 .m_doc = cxrandomwalk_coremod_docs,
 										 .m_size = -1,
 										 .m_methods = NULL,
 										 .m_slots = NULL,
@@ -625,7 +625,7 @@ static PyModuleDef cxrandomwalk_mod = {PyModuleDef_HEAD_INIT,
 										 .m_free = NULL};
 
 PyMODINIT_FUNC
-PyInit_cxrandomwalk(void)
+PyInit_cxrandomwalk_core(void)
 {
 	import_array();
 
@@ -633,7 +633,7 @@ PyInit_cxrandomwalk(void)
 	if (PyType_Ready(&PyAgentType) < 0) {
 		return NULL;
 	}
-	m = PyModule_Create(&cxrandomwalk_mod);
+	m = PyModule_Create(&cxrandomwalk_core_mod);
 	if (m == NULL) {
 		return NULL;
 	}
