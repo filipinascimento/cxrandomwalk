@@ -462,7 +462,14 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 							}
 						}
 
-						CVDouble choice = ((double)rand_r(seedRef) / RAND_MAX);
+						#ifdef __WIN32__
+							unsigned int randomNumber;
+							rand_s(&randomNumber);
+							CVDouble choice = ((double)randomNumber / UINT_MAX);
+						#else
+							CVDouble choice = ((double)rand_r(seedRef) / RAND_MAX);
+						#endif
+						
 						CVDistribution *distribution =
 							CVCreateDistribution(probabilities, NULL, neighborCount);
 
