@@ -250,6 +250,7 @@ static PyGetSetDef PyAgent_getsetters[] = {
 
 PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 	static char *kwlist[] = {
+		"nodes",
 		"p",
 		"q",
 		"windowSize",
@@ -269,13 +270,15 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 	int verbose = 0;
 	char* outputPath = NULL;
 	PyObject* labels = NULL;
+	PyObject* nodes = NULL;
 	PyObject* callback = NULL ;
 	Py_ssize_t updateInterval = 1000;
 
 	if (!PyArg_ParseTupleAndKeywords(args,
 									 kwds,
-									 "|ffnnpsOOn",
+									 "|OffnnpsOOn",
 									 kwlist,
+									 &nodes,
 									 &p,
 									 &q,
 									 &windowSize,
@@ -311,7 +314,34 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 	CVNetwork *network = self->network;
 
 	CVSize verticesCount = network->verticesCount;
-	CVSize sentencesCount = network->verticesCount * walksPerNode;
+	CVIndex *nodesArray = NULL;
+	CVSize nodesArraySize = 0;
+	// if nodes is not specified, put all nodes in the array
+	if(!nodes){
+		nodesArray = calloc(verticesCount,sizeof(CVIndex));
+		for (CVIndex index=0; index<verticesCount; index++){
+			nodesArray[index] = index;
+		}
+		nodesArraySize = verticesCount;
+	}else{
+		PyArrayObject *nodesArrayObject = NULL;
+		if (!(nodesArrayObject = convertToUIntegerArray(nodes, 1, 1))) {
+			PyErr_SetString(PyExc_TypeError,"Error creating arrays.");
+			return NULL;
+		}
+		nodesArraySize = (CVSize)PyArray_SIZE(nodesArrayObject);
+		nodesArray = PyArray_DATA(nodesArrayObject);
+	}
+	// check if indices are valid
+	for (CVIndex index=0; index<nodesArraySize; index++){
+		if(nodesArray[index]>=verticesCount){
+			free(nodesArray);
+			PyErr_SetString(PyExc_TypeError,"Node indices should not be higher than the number of vertices.");
+			return NULL;
+		}
+	}
+	
+	CVSize sentencesCount = nodesArraySize * walksPerNode;
 	CVIndex *sentences = calloc(sentencesCount * windowSize,
 								sizeof(CVIndex)); // all indices are shifted by 1
 
@@ -389,10 +419,11 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 			}
 		}
 		if(!*shallStop){
-			CVIndex currentNode = sentenceIndex % verticesCount;
+			CVIndex currentNode = nodesArray[sentenceIndex / walksPerNode];
 			CVIndex previousNode = currentNode;
 			CVUIntegerSet *previousNeighborsSet = CVNewUIntegerSet();
 			unsigned int *seedRef = seeds + sentenceIndex;
+
 			sentences[sentenceIndex * windowSize + 0] =
 				currentNode + 1; // Always shifted by 1;
 			if (q == 1.0 && p == 1.0) {
