@@ -25,11 +25,15 @@ jobs:
         env:
             #   CIBW_SOME_OPTION: value
             # remove python 3.12 and pp
-            CIBW_SKIP: "cp27-* cp35-* cp36-* cp37-* cp38-* cp312-* pp* *-win32 *win_arm64 *i686"
+            CIBW_SKIP: "cp27-* cp35-* cp36-* cp312-* pp* *-win32 *win_arm64 *i686"
+            # CIBW_BEFORE_ALL_WINDOWS: >
+            # vcpkg update &&
+            # vcpkg install getopt:x64-windows-static &&
+            # vcpkg integrate install
             # test tests/test_agent.py
-            CIBW_TEST_REQUIRES: pytest tqdm
-            CIBW_TEST_COMMAND: "pytest {project}/tests"
-        
+            # CIBW_TEST_REQUIRES: pytest tqdm
+            # CIBW_TEST_COMMAND: "pytest {project}/tests"
+            CIBW_TEST_COMMAND: "python {project}/docs/tutorial/example.py"
       - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl

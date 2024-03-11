@@ -21,6 +21,8 @@ compilerOptions = [
                 # "-g",
                 "-std=c11",
                 # "-m64",
+                # "-g3",
+                # "-O0",
                 "-Wall",
                 "-Wno-unused-function",
                 "-Wno-deprecated-declarations",
@@ -100,7 +102,7 @@ setup(
     author_email="filipinascimento@gmail.com",
     # compiler = "mingw32" if building_on_windows else None,
     install_requires=[req for req in requirements if req[:2] != "# "],
-    setup_requires=["wheel","numpy","scipy"],
+    setup_requires=["wheel","numpy"],
     description="Library to perform random walks on complex networks.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -117,7 +119,7 @@ setup(
             "Topic :: Scientific/Engineering :: Information Analysis",
             "Intended Audience :: Science/Research"
     ],
-    python_requires='>=3.9',
+    python_requires='>=3.8',
     ext_modules = [
         Extension(
             extensionPackageName,

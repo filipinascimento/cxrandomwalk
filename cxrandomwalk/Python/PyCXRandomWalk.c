@@ -17,6 +17,20 @@
 #include <omp.h>
 #endif //_OPENMP
 
+
+
+CV_INLINE CVDouble getRandomChoice(unsigned int* seedRef) {
+	#ifdef __WIN32__
+		unsigned int randomNumber;
+		rand_s(&randomNumber);
+		return ((double)randomNumber / UINT_MAX);
+	#else
+		return ((double)rand_r(seedRef) / RAND_MAX);
+	#endif
+}
+
+
+
 static PyArrayObject *
 pyvector(PyObject *objin)
 {
@@ -312,6 +326,7 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 
 
 	CVNetwork *network = self->network;
+	windowSize+=1; // Our window size is in number of nodes, but users provide number of hops.
 
 	CVSize verticesCount = network->verticesCount;
 	CVIndex *nodesArray = NULL;
@@ -604,6 +619,297 @@ PyObject * PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds){
 	}
 }
 
+
+
+PyObject * PyAgent_walkHits(PyAgent *self, PyObject *args, PyObject *kwds){
+	static char *kwlist[] = {
+		"nodes",
+		"p",
+		"q",
+		"windowSize",
+		"walksPerNode",
+		"batchSize",
+		"verbose",
+		"callback",
+		"updateInterval",
+		NULL
+	};
+
+	float p = 1.0;
+	float q = 1.0;
+	Py_ssize_t windowSize = 80;
+	Py_ssize_t walksPerNode = 80;
+	Py_ssize_t batchSize = 10000;
+	int verbose = 0;
+	PyObject* nodes = NULL;
+	PyObject* callback = NULL ;
+	Py_ssize_t updateInterval = 1000;
+
+	if (!PyArg_ParseTupleAndKeywords(args,
+									 kwds,
+									 "|OffnnnpOn",
+									 kwlist,
+									 &nodes,
+									 &p,
+									 &q,
+									 &windowSize,
+									 &walksPerNode,
+									 &batchSize,
+									 &verbose,
+									 &callback,
+									 &updateInterval)) {
+		return NULL;
+	}
+	if (callback != NULL ) {
+		if (!PyCallable_Check(callback )) {
+			PyErr_SetString(PyExc_ValueError, "Invalid callback.") ;
+		printf("\n----ERROR----\nInvalid callback.\n");
+		return NULL ;
+		}
+	}
+	windowSize+=1; // Our window size is in number of nodes, but users provide number of hops.
+	CVNetwork *network = self->network;
+
+	CVSize verticesCount = network->verticesCount;
+	CVIndex *nodesArray = NULL;
+	CVSize nodesArraySize = 0;
+	// if nodes is not specified, put all nodes in the array
+	if(!nodes){
+		nodesArray = calloc(verticesCount,sizeof(CVIndex));
+		for (CVIndex index=0; index<verticesCount; index++){
+			nodesArray[index] = index;
+		}
+		nodesArraySize = verticesCount;
+	}else{
+		PyArrayObject *nodesArrayObject = NULL;
+		if (!(nodesArrayObject = convertToUIntegerArray(nodes, 1, 1))) {
+			PyErr_SetString(PyExc_TypeError,"Error creating arrays.");
+			printf("\n----ERROR----\nError creating arrays.\n");
+			return NULL;
+		}
+		nodesArraySize = (CVSize)PyArray_SIZE(nodesArrayObject);
+		nodesArray = PyArray_DATA(nodesArrayObject);
+	}
+	// check if indices are valid
+	for (CVIndex index=0; index<nodesArraySize; index++){
+		if(nodesArray[index]>=verticesCount){
+			free(nodesArray);
+			PyErr_SetString(PyExc_TypeError,"Node indices should not be higher than the number of vertices.");
+			printf("\n----ERROR----\nNode indices should not be higher than the number of vertices.\n");
+			return NULL;
+		}
+	}
+	
+	// CVSize sentencesCount = nodesArraySize * walksPerNode;
+	CVSize walksCount = nodesArraySize * walksPerNode;
+	CVSize batchCount = (walksCount + batchSize - 1) / batchSize; // ceil(walksCount / batchSize);
+
+	npy_intp dims[2] = {nodesArraySize, verticesCount};
+	PyArrayObject *hitsArray = (PyArrayObject *)PyArray_ZEROS(2, dims, NPY_UINT64, 0);
+	if (hitsArray == NULL) {
+		PyErr_SetString(PyExc_TypeError,"Error creating arrays.");
+		return NULL;
+	}
+	// memset(PyArray_DATA(hitsArray), 0, nodesArraySize * verticesCount * sizeof(CVIndex));
+	CVIndex* hitsMatrix = PyArray_DATA(hitsArray);
+	// CVIndex* hitsMatrix = calloc(nodesArraySize * verticesCount,
+	// 							sizeof(CVIndex));
+	// printf("Max histMatrixSize: %d\n",(int)(nodesArraySize * verticesCount));
+	unsigned int *seeds = calloc(batchCount, sizeof(unsigned int));
+
+	unsigned int initialSeed = (unsigned int)time(NULL);
+	for (CVIndex batchIndex = 0; batchIndex < batchCount;
+		 batchIndex++) {
+		#ifdef __WIN32__
+				unsigned int randomNumber;
+				rand_s(&randomNumber);
+				randomNumber ^= (unsigned int)batchIndex;
+				seeds[batchIndex] = randomNumber;
+		#else
+				seeds[batchIndex] = rand_r(&initialSeed) ^ (unsigned int)batchIndex;
+		#endif
+	}
+
+	CVInteger *currentProgress = calloc(1, sizeof(CVInteger));
+	CVInteger *shallStop = calloc(1, sizeof(CVInteger));
+	*shallStop = 0;
+	CVParallelForStart(distributionsLoop, batchIndex, batchCount){
+		if(CVUnlikely(!*shallStop)){
+			if (CVUnlikely(CVAtomicIncrementInteger(currentProgress) % updateInterval == 0)) {
+				CVParallelLoopCriticalRegionStart(distributionsLoop){
+					if(verbose){
+						printf("Batches: %" CVIndexScan "/%" CVIndexScan
+								" (%.2f%%)                                                      "
+								"           \r",
+								(CVIndex)(*currentProgress),
+								batchCount,
+								(*currentProgress) / (float)(batchCount) * 100.0);
+						fflush(stdout);
+					}
+
+					if (PyErr_CheckSignals() != 0){
+						*shallStop = 1;
+						printf("Stopping Walks                                \n");
+						fflush(stdout);
+					}else if(callback){
+							PyObject* pArgs = Py_BuildValue( "nn",(Py_ssize_t)(*currentProgress),(Py_ssize_t)batchCount) ;
+							PyObject* pKywdArgs = NULL ;
+							PyObject_Call( callback, pArgs, NULL ) ;
+							Py_DECREF( pArgs);
+					}
+
+				}
+				CVParallelLoopCriticalRegionEnd(distributionsLoop);
+			}
+		}
+		unsigned int *seedRef = seeds + batchIndex;
+		CVIndex walkStartIndex = batchIndex * batchSize;
+		CVIndex walkEndIndex = CVMIN((batchIndex + 1) * batchSize,
+								  nodesArraySize * walksPerNode);
+		
+		for(CVIndex walkIndex = walkStartIndex; walkIndex < walkEndIndex; walkIndex++){
+			if(CVLikely(!*shallStop)){
+				CVIndex sourceNodeIndex = walkIndex / walksPerNode;
+				CVIndex sourceNode = nodesArray[walkIndex / walksPerNode];
+				CVIndex currentNode = sourceNode;
+				CVIndex previousNode = currentNode;
+
+				// sentences[sentenceIndex * windowSize + 0] =
+				// 	currentNode + 1; // Always shifted by 1;
+				
+				// fastest way to check if p and q are both close to 1
+				// if (CVLikely((fabs(p - 1.0) < 1e-6 && fabs(q - 1.0) < 1e-6))) {
+				if (CVLikely(p == 1.0 && q ==1.0)) {
+					if (CVLikely(!network->edgeWeighted)) {
+						for (CVIndex walkStep = 1; walkStep < windowSize; walkStep++) { //
+							CVIndex *neighbors = network->vertexEdgesLists[currentNode];
+							CVIndex neighborCount = network->vertexNumOfEdges[currentNode];
+							if (CVLikely(neighborCount > 0)) {
+								CVDouble choice = getRandomChoice(seedRef);
+								previousNode = currentNode;
+								currentNode = neighbors[(CVIndex)(choice * neighborCount)];
+								// sentences[sentenceIndex * windowSize + walkStep] =
+								// 	currentNode + 1; // Always shifted by 1;
+								CVAtomicIncrementInteger(hitsMatrix + (sourceNodeIndex * verticesCount + currentNode));
+							} else {
+								break;
+							}
+						}
+					}else{
+						for (CVIndex walkStep = 1; walkStep < windowSize; walkStep++) { //
+							CVIndex *neighbors = network->vertexEdgesLists[currentNode];
+							CVIndex neighborCount = network->vertexNumOfEdges[currentNode];
+							if (neighborCount > 0) {
+								CVDouble choice = getRandomChoice(seedRef);
+								previousNode = currentNode;
+								CVIndex *neighEdges = network->vertexEdgesIndices[currentNode];
+								CVFloat *probabilities = calloc(neighborCount, sizeof(CVFloat));
+								for (CVIndex neighIndex = 0; neighIndex < neighborCount;
+									neighIndex++) {
+									CVIndex edgeIndex = neighEdges[neighIndex];
+									CVFloat weight = network->edgesWeights[edgeIndex];
+									probabilities[neighIndex] = weight;
+								}
+								CVDistribution *distribution =
+									CVCreateDistribution(probabilities, NULL, neighborCount);
+								currentNode =
+									neighbors[CVDistributionIndexForChoice(distribution, choice)];
+								CVDestroyDistribution(distribution);
+								free(probabilities);
+								// sentences[sentenceIndex * windowSize + walkStep] =
+								// 	currentNode + 1; // Always shifted by 1;
+								CVAtomicIncrementInteger(hitsMatrix + (sourceNodeIndex * verticesCount + currentNode));
+							} else {
+								break;
+							}
+						}
+					}
+				} else {
+					CVUIntegerSet *previousNeighborsSet = CVNewUIntegerSet();
+					for (CVIndex walkStep = 1; walkStep < windowSize; walkStep++) { //
+						CVIndex *neighbors = network->vertexEdgesLists[currentNode];
+						CVIndex neighborCount = network->vertexNumOfEdges[currentNode];
+						if (neighborCount > 0) {
+							CVFloat *probabilities = calloc(neighborCount, sizeof(CVFloat));
+							CVIndex *neighEdges = network->vertexEdgesIndices[currentNode];
+							for (CVIndex neighIndex = 0; neighIndex < neighborCount;
+								neighIndex++) {
+								CVIndex edgeIndex = neighEdges[neighIndex];
+								CVIndex candidateIndex = neighbors[neighIndex];
+								CVFloat weight = 1.0;
+
+								if (network->edgeWeighted) {
+									weight = network->edgesWeights[edgeIndex];
+								}
+
+								if (neighbors[neighIndex] == previousNode) {
+									probabilities[neighIndex] = weight * 1 / p;
+								}
+								else if (CVUIntegerSetHas(previousNeighborsSet, candidateIndex)) {
+									probabilities[neighIndex] = weight;
+								}
+								else {
+									probabilities[neighIndex] = weight * 1 / q;
+								}
+							}
+
+							CVDouble choice = getRandomChoice(seedRef);
+							
+							CVDistribution *distribution =
+								CVCreateDistribution(probabilities, NULL, neighborCount);
+
+							previousNode = currentNode;
+							currentNode =
+								neighbors[CVDistributionIndexForChoice(distribution, choice)];
+			
+							// printf("%"CVUIntegerScan":%"CVUIntegerScan"-%"CVUIntegerScan" ", sourceNodeIndex, previousNode,currentNode);
+							// hitsMatrix[sourceNodeIndex * verticesCount + currentNode] += 1;
+							CVAtomicIncrementInteger(hitsMatrix + (sourceNodeIndex * verticesCount + currentNode));
+
+							CVDestroyDistribution(distribution);
+							free(probabilities);
+
+							CVUIntegerSetClear(previousNeighborsSet);
+							for (CVIndex neighIndex = 0; neighIndex < neighborCount;
+								neighIndex++) {
+								CVUIntegerSetAdd(previousNeighborsSet, neighbors[neighIndex]);
+							}
+						}
+						else {
+							break;
+						}
+					}
+					CVUIntegerSetDestroy(previousNeighborsSet);
+				}
+			}else{
+				break;
+			}
+		}
+	}
+	CVParallelForEnd(distributionsLoop);
+	
+
+	free(currentProgress);
+	
+	if(*shallStop){
+		printf("Stopped                                \n");
+		// free(sentences);
+		free(shallStop);
+		// PyErr_Format(PyExc_FileNotFoundError,"Error happened.");
+
+		return NULL;
+	}
+
+	free(shallStop);
+	
+	if(verbose){
+		printf("DONE                                \n");
+	}
+	return (PyObject*)hitsArray;
+}
+
+
+
 // PyObject* PyAgent_isRunning(PyAgent *self, PyObject *Py_UNUSED(ignored)){
 // 	return Py_BuildValue("O", self->_isRunning ? Py_True: Py_False);
 // }
@@ -642,6 +948,10 @@ static PyMethodDef PyAgent_methods[] = {
 	 (PyCFunction)PyAgent_generateWalks,
 	 METH_VARARGS | METH_KEYWORDS,
 	 "Create a sequence of walks."},
+	{"walkHits",
+	 (PyCFunction)PyAgent_walkHits,
+	 METH_VARARGS | METH_KEYWORDS,
+	 "Calculate walk hits from source node."},
 	{NULL} /* Sentinel */
 };
 
