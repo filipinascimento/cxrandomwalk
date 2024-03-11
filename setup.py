@@ -21,6 +21,8 @@ compilerOptions = [
                 # "-g",
                 "-std=c11",
                 # "-m64",
+                # "-g3",
+                # "-O0",
                 "-Wall",
                 "-Wno-unused-function",
                 "-Wno-deprecated-declarations",
@@ -117,7 +119,7 @@ setup(
             "Topic :: Scientific/Engineering :: Information Analysis",
             "Intended Audience :: Science/Research"
     ],
-    python_requires='>=3.9',
+    python_requires='>=3.8',
     ext_modules = [
         Extension(
             extensionPackageName,
