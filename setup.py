@@ -102,7 +102,7 @@ setup(
     author_email="filipinascimento@gmail.com",
     # compiler = "mingw32" if building_on_windows else None,
     install_requires=[req for req in requirements if req[:2] != "# "],
-    setup_requires=["wheel","numpy","scipy"],
+    setup_requires=["wheel","numpy"],
     description="Library to perform random walks on complex networks.",
     long_description=long_description,
     long_description_content_type="text/markdown",
