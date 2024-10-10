@@ -1,2 +1,2 @@
-include cxrandomwalk-core/Source/*.h
-include cxrandomwalk-core/Python/*.h
+include cxrandomwalk/Source/*.h
+include cxrandomwalk/Python/*.h
