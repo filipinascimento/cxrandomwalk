@@ -129,6 +129,8 @@ setup(
 				os.path.join(packageName,"Source", "CVNetwork.c"),
 				os.path.join(packageName,"Source", "CVDictionary.c"),
 				os.path.join(packageName,"Source", "CVDistribution.c"),
+				os.path.join(packageName,"Source", "fib.c"),
+				os.path.join(packageName,"Source", "CVNetworkCentrality.c"),
 				os.path.join(packageName,"Python", "PyCXRandomWalk.c"),
             ],
             include_dirs=[

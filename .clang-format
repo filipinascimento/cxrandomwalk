@@ -1,0 +1,9 @@
+
+BasedOnStyle: LLVM
+AlignAfterOpenBracket: DontAlign
+AllowShortIfStatementsOnASingleLine: Never
+IndentWidth: '4'
+TabWidth: '4'
+UseTab: Always
+IndentPPDirectives: AfterHash
+ColumnLimit: 100
