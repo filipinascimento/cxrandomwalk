@@ -34,9 +34,12 @@ jobs:
             # CIBW_TEST_REQUIRES: pytest tqdm
             # CIBW_TEST_COMMAND: "pytest {project}/tests"
             CIBW_TEST_COMMAND: "python {project}/docs/tutorial/example.py"
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
+          name: my-artifact-${{ matrix.os }}
           path: ./wheelhouse/*.whl
+
+
 
 
   upload_all:
@@ -48,10 +51,10 @@ jobs:
     steps:
      - uses: actions/download-artifact@v4
        with:
-         name: artifact
-         path: dist
+        path: dist
+        pattern: my-artifact-*
+        merge-multiple: true
      - name: List directory contents
        run: |
          ls -l ./dist
      - uses: pypa/gh-action-pypi-publish@release/v1
-
