@@ -119,7 +119,7 @@ setup(
             "Topic :: Scientific/Engineering :: Information Analysis",
             "Intended Audience :: Science/Research"
     ],
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     ext_modules = [
         Extension(
             extensionPackageName,
