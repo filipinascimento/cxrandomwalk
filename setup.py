@@ -102,7 +102,7 @@ setup(
     author_email="filipinascimento@gmail.com",
     # compiler = "mingw32" if building_on_windows else None,
     install_requires=[req for req in requirements if req[:2] != "# "],
-    setup_requires=["wheel","numpy"],
+    setup_requires=["wheel","numpy>=2.0.0"],
     description="Library to perform random walks on complex networks.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -119,7 +119,7 @@ setup(
             "Topic :: Scientific/Engineering :: Information Analysis",
             "Intended Audience :: Science/Research"
     ],
-    python_requires='>=3.8',
+    python_requires='>=3.10',
     ext_modules = [
         Extension(
             extensionPackageName,
