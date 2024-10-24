@@ -143,7 +143,8 @@ setup(
             # library_dirs=extraLibraryPaths,
             # libraries = ["getopt"] if building_on_windows else [],
         ),
-    ]
+    ],
+    cmdclass={
+        'sdist': setuptools.command.sdist.sdist,
+    }
 )
-
-        
