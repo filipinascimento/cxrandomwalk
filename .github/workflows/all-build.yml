@@ -46,7 +46,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: source-dist
+          name: source-dist  # <-- Ensure artifact name is consistent
           path: ./dist/*.tar.gz
 
   upload_all:
@@ -59,12 +59,12 @@ jobs:
      - uses: actions/download-artifact@v4
        with:
         path: dist
-        pattern: my-artifact-*
+        pattern: my-artifact-*  # For wheels
         merge-multiple: true
      - uses: actions/download-artifact@v4
        with:
         path: dist
-        pattern: source-dist-*
+        pattern: source-dist  # <-- Pattern matching exact artifact name
         merge-multiple: true
      - name: List directory contents
        run: |
