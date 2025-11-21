@@ -331,6 +331,7 @@ PyObject *PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds) {
 	CVInteger *shallStop = calloc(1, sizeof(CVInteger));
 	*shallStop = 0;
 
+	Py_BEGIN_ALLOW_THREADS
 	CVParallelForStart(distributionsLoop, sentenceIndex, sentencesCount) {
 		if (!*shallStop) {
 			if (CVAtomicIncrementInteger(currentProgress) % updateInterval == 0) {
@@ -345,17 +346,28 @@ PyObject *PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds) {
 						fflush(stdout);
 					}
 
-					if (PyErr_CheckSignals() != 0) {
+					PyGILState_STATE gilState = PyGILState_Ensure();
+					int signalResult = PyErr_CheckSignals();
+					if (signalResult != 0) {
 						*shallStop = 1;
 						printf("Stopping Walks                                \n");
 						fflush(stdout);
 					} else if (callback) {
 						PyObject *pArgs = Py_BuildValue(
 							"nn", (Py_ssize_t)(*currentProgress), (Py_ssize_t)sentencesCount);
-						PyObject *pKywdArgs = NULL;
-						PyObject_Call(callback, pArgs, NULL);
-						Py_DECREF(pArgs);
+						if (pArgs) {
+							PyObject *callbackResult = PyObject_Call(callback, pArgs, NULL);
+							Py_DECREF(pArgs);
+							if (!callbackResult) {
+								*shallStop = 1;
+							} else {
+								Py_DECREF(callbackResult);
+							}
+						} else {
+							*shallStop = 1;
+						}
 					}
+					PyGILState_Release(gilState);
 				}
 				CVParallelLoopCriticalRegionEnd(distributionsLoop);
 			}
@@ -458,6 +470,7 @@ PyObject *PyAgent_generateWalks(PyAgent *self, PyObject *args, PyObject *kwds) {
 		}
 	}
 	CVParallelForEnd(distributionsLoop);
+	Py_END_ALLOW_THREADS
 
 	free(currentProgress);
 
@@ -625,6 +638,7 @@ PyObject *PyAgent_walkHits(PyAgent *self, PyObject *args, PyObject *kwds) {
 	CVInteger *currentProgress = calloc(1, sizeof(CVInteger));
 	CVInteger *shallStop = calloc(1, sizeof(CVInteger));
 	*shallStop = 0;
+	Py_BEGIN_ALLOW_THREADS
 	CVParallelForStart(distributionsLoop, batchIndex, batchCount) {
 		if (CVUnlikely(!*shallStop)) {
 			if (CVUnlikely(CVAtomicIncrementInteger(currentProgress) % updateInterval == 0)) {
@@ -639,17 +653,28 @@ PyObject *PyAgent_walkHits(PyAgent *self, PyObject *args, PyObject *kwds) {
 						fflush(stdout);
 					}
 
-					if (PyErr_CheckSignals() != 0) {
+					PyGILState_STATE gilState = PyGILState_Ensure();
+					int signalResult = PyErr_CheckSignals();
+					if (signalResult != 0) {
 						*shallStop = 1;
 						printf("Stopping Walks                                \n");
 						fflush(stdout);
 					} else if (callback) {
 						PyObject *pArgs = Py_BuildValue(
 							"nn", (Py_ssize_t)(*currentProgress), (Py_ssize_t)batchCount);
-						PyObject *pKywdArgs = NULL;
-						PyObject_Call(callback, pArgs, NULL);
-						Py_DECREF(pArgs);
+						if (pArgs) {
+							PyObject *callbackResult = PyObject_Call(callback, pArgs, NULL);
+							Py_DECREF(pArgs);
+							if (!callbackResult) {
+								*shallStop = 1;
+							} else {
+								Py_DECREF(callbackResult);
+							}
+						} else {
+							*shallStop = 1;
+						}
 					}
+					PyGILState_Release(gilState);
 				}
 				CVParallelLoopCriticalRegionEnd(distributionsLoop);
 			}
@@ -779,6 +804,7 @@ PyObject *PyAgent_walkHits(PyAgent *self, PyObject *args, PyObject *kwds) {
 		}
 	}
 	CVParallelForEnd(distributionsLoop);
+	Py_END_ALLOW_THREADS
 
 	free(currentProgress);
 
